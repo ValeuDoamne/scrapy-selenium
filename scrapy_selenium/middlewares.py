@@ -9,6 +9,19 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from .http import SeleniumRequest
 
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class Driver(metaclass=Singleton):
+    driver = None
+    def set_driver(self, driver):
+        self.driver = driver
+    def get_instance(self):
+        return self.driver
 
 class SeleniumMiddleware:
     """Scrapy middleware handling the requests using selenium"""
@@ -48,22 +61,24 @@ class SeleniumMiddleware:
 
         driver_kwargs = {
             'executable_path': driver_executable_path,
-            f'{driver_name}_options': driver_options
+            'options': driver_options
         }
 
         # locally installed driver
         if driver_executable_path is not None:
             driver_kwargs = {
                 'executable_path': driver_executable_path,
-                f'{driver_name}_options': driver_options
+                'options': driver_options
             }
             self.driver = driver_klass(**driver_kwargs)
+            Driver().set_driver(self.driver)
         # remote driver
         elif command_executor is not None:
             from selenium import webdriver
             capabilities = driver_options.to_capabilities()
             self.driver = webdriver.Remote(command_executor=command_executor,
                                            desired_capabilities=capabilities)
+            Driver().set_driver(self.driver)
 
     @classmethod
     def from_crawler(cls, crawler):
